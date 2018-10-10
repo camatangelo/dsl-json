@@ -666,4 +666,12 @@ public class JavaValidationTest extends AbstractAnnotationProcessorTest {
 		checkValidCompilation(MapRuntimeCtor.class);
 	}
 
+	@Test
+	public void badDiscriminatorChar() {
+		assertCompilationReturned(
+				Diagnostic.Kind.ERROR,
+				5,
+				compileTestCase(InterfaceWithBadDiscriminator.class),
+				"Invalid discriminator value: 'abc\t' for mixin: com.dslplatform.json.models.InterfaceWithBadDiscriminator. Invalid char at: 3");
+	}
 }

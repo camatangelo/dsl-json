@@ -244,12 +244,13 @@ public class DslJson<TContext> implements UnknownSerializer, TypeLookup {
 		 * @param writer registered writer factory
 		 * @return itself
 		 */
-		public Settings<TContext> resolveWriter(ConverterFactory<JsonWriter.WriteObject> writer) {
+		@SuppressWarnings("unchecked")
+		public Settings<TContext> resolveWriter(ConverterFactory<? extends JsonWriter.WriteObject> writer) {
 			if (writer == null) throw new IllegalArgumentException("writer can't be null");
 			if (writerFactories.contains(writer)) {
 				throw new IllegalArgumentException("writer already registered");
 			}
-			writerFactories.add(writer);
+			writerFactories.add((ConverterFactory<JsonWriter.WriteObject>) writer);
 			return this;
 		}
 
@@ -260,12 +261,13 @@ public class DslJson<TContext> implements UnknownSerializer, TypeLookup {
 		 * @param reader registered reader factory
 		 * @return itself
 		 */
-		public Settings<TContext> resolveReader(ConverterFactory<JsonReader.ReadObject> reader) {
+		@SuppressWarnings("unchecked")
+		public Settings<TContext> resolveReader(ConverterFactory<? extends JsonReader.ReadObject> reader) {
 			if (reader == null) throw new IllegalArgumentException("reader can't be null");
 			if (readerFactories.contains(reader)) {
 				throw new IllegalArgumentException("reader already registered");
 			}
-			readerFactories.add(reader);
+			readerFactories.add((ConverterFactory<JsonReader.ReadObject>) reader);
 			return this;
 		}
 
@@ -276,12 +278,13 @@ public class DslJson<TContext> implements UnknownSerializer, TypeLookup {
 		 * @param binder registered binder factory
 		 * @return itself
 		 */
-		public Settings<TContext> resolveBinder(ConverterFactory<JsonReader.BindObject> binder) {
+		@SuppressWarnings("unchecked")
+		public Settings<TContext> resolveBinder(ConverterFactory<? extends JsonReader.BindObject> binder) {
 			if (binder == null) throw new IllegalArgumentException("binder can't be null");
 			if (binderFactories.contains(binder)) {
 				throw new IllegalArgumentException("binder already registered");
 			}
-			binderFactories.add(binder);
+			binderFactories.add((ConverterFactory<JsonReader.BindObject>) binder);
 			return this;
 		}
 
@@ -794,22 +797,28 @@ public class DslJson<TContext> implements UnknownSerializer, TypeLookup {
 	public <T> void registerDefault(Class<T> manifest, T instance) {
 		defaults.put(manifest, instance);
 	}
-	public boolean registerWriterFactory(ConverterFactory<JsonWriter.WriteObject> factory) {
+
+	@SuppressWarnings("unchecked")
+	public boolean registerWriterFactory(ConverterFactory<? extends JsonWriter.WriteObject> factory) {
 		if (factory == null) throw new IllegalArgumentException("factory can't be null");
 		if (writerFactories.contains(factory)) return false;
-		writerFactories.add(writerFactories.size() - settingsWriters, factory);
+		writerFactories.add(writerFactories.size() - settingsWriters, (ConverterFactory<JsonWriter.WriteObject>) factory);
 		return true;
 	}
-	public boolean registerReaderFactory(ConverterFactory<JsonReader.ReadObject> factory) {
+
+	@SuppressWarnings("unchecked")
+	public boolean registerReaderFactory(ConverterFactory<? extends JsonReader.ReadObject> factory) {
 		if (factory == null) throw new IllegalArgumentException("factory can't be null");
 		if (readerFactories.contains(factory)) return false;
-		readerFactories.add(readerFactories.size() - settingsReaders, factory);
+		readerFactories.add(readerFactories.size() - settingsReaders, (ConverterFactory<JsonReader.ReadObject>) factory);
 		return true;
 	}
-	public boolean registerBinderFactory(ConverterFactory<JsonReader.BindObject> factory) {
+
+	@SuppressWarnings("unchecked")
+	public boolean registerBinderFactory(ConverterFactory<? extends JsonReader.BindObject> factory) {
 		if (factory == null) throw new IllegalArgumentException("factory can't be null");
 		if (binderFactories.contains(factory)) return false;
-		binderFactories.add(binderFactories.size() - settingsBinders, factory);
+		binderFactories.add(binderFactories.size() - settingsBinders, (ConverterFactory<JsonReader.BindObject>) factory);
 		return true;
 	}
 
@@ -1023,6 +1032,19 @@ public class DslJson<TContext> implements UnknownSerializer, TypeLookup {
 		return null;
 	}
 
+	private void checkExternal(final Type manifest) {
+		if (manifest instanceof Class<?>) {
+			externalConverterAnalyzer.tryFindConverter((Class<?>) manifest, this);
+		} else if (manifest instanceof ParameterizedType) {
+			ParameterizedType pt = (ParameterizedType) manifest;
+			Type container = pt.getRawType();
+			externalConverterAnalyzer.tryFindConverter((Class<?>) container, this);
+			for (Type arg : pt.getActualTypeArguments()) {
+				checkExternal(arg);
+			}
+		}
+	}
+
 	@Nullable
 	private <T> T lookupFromFactories(
 			final Type manifest,
@@ -1033,8 +1055,7 @@ public class DslJson<TContext> implements UnknownSerializer, TypeLookup {
 			T found = cache.get(manifest);
 			if (found != null) return found;
 		} else if (manifest instanceof ParameterizedType) {
-			Type container = ((ParameterizedType)manifest).getRawType();
-			externalConverterAnalyzer.tryFindConverter((Class<?>) container, this);
+			checkExternal(manifest);
 		}
 
 		for (ConverterFactory<T> wrt : factories) {

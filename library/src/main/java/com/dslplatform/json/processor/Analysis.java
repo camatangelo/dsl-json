@@ -392,7 +392,32 @@ public class Analysis {
 			}
 			if (info.deserializeAs == null && info.type == ObjectType.MIXIN) {
 				Set<String> names = new HashSet<String>();
-				for(StructInfo im : info.implementations) {
+				String discriminator = info.deserializeDiscriminator;
+				if (discriminator.length() > 0 && onlyBasicFeatures) {
+					hasError = true;
+					messager.printMessage(
+							Diagnostic.Kind.ERROR,
+							"Custom $type discriminator is not supported with current analysis setup",
+							info.element,
+							info.annotation);
+				}
+				int invalidChartAt = -1;
+				for (int i = 0; i < discriminator.length(); i++) {
+					char c = discriminator.charAt(i);
+					if (c < 32 || c == '"' || c == '\\' || c > 126) {
+						invalidChartAt = i;
+						break;
+					}
+				}
+				if (invalidChartAt != -1) {
+					hasError = true;
+					messager.printMessage(
+							Diagnostic.Kind.ERROR,
+							"Invalid discriminator value: '" + discriminator + "' for mixin: " + className +". Invalid char at: " + invalidChartAt,
+							info.element,
+							info.annotation);
+				}
+				for (StructInfo im : info.implementations) {
 					String actualName = im.deserializeName.isEmpty() ? im.element.getQualifiedName().toString() : im.deserializeName;
 					if (!names.add(actualName)) {
 						hasError = true;
@@ -410,6 +435,13 @@ public class Analysis {
 								info.annotation);
 					}
 				}
+			}
+			if (info.type == ObjectType.MIXIN && info.deserializeDiscriminator.length() > 0 && info.implementations.isEmpty()) {
+				messager.printMessage(
+						Diagnostic.Kind.WARNING,
+						"Custom deserialization discriminator found: '" + info.deserializeDiscriminator + "', but no implementation detected for mixin: " + className,
+						info.element,
+						info.annotation);
 			}
 			if (info.type == ObjectType.CLASS && onlyBasicFeatures && !info.hasKnownConversion() && !info.hasEmptyCtor()) {
 				hasError = true;
@@ -922,6 +954,7 @@ public class Analysis {
 							onUnknown,
 							typeSignature,
 							deserializeAs,
+							deserializeDiscriminator(annotation),
 							deserializeName(annotation),
 							type == ObjectType.ENUM ? findEnumConstantNameSource(element) : null,
 							isMinified(annotation),
@@ -1802,6 +1835,17 @@ public class Analysis {
 			}
 		}
 		return null;
+	}
+
+	public static String deserializeDiscriminator(@Nullable AnnotationMirror annotation) {
+		if (annotation == null) return "";
+		Map<? extends ExecutableElement, ? extends AnnotationValue> values = annotation.getElementValues();
+		for (ExecutableElement ee : values.keySet()) {
+			if (ee.toString().equals("deserializeDiscriminator()")) {
+				return values.get(ee).getValue().toString();
+			}
+		}
+		return "";
 	}
 
 	public static String deserializeName(@Nullable AnnotationMirror annotation) {

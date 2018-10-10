@@ -201,7 +201,7 @@ public class CompiledJsonAnnotationProcessor extends AbstractProcessor {
 		if (roundEnv.processingOver() || annotations.isEmpty()) {
 			return false;
 		}
-		final DslJson.Settings settings = new DslJson.Settings()
+		final DslJson.Settings<Object> settings = new DslJson.Settings<>()
 				.resolveReader(Settings.UNKNOWN_READER)
 				.resolveWriter(Settings.UNKNOWN_WRITER)
 				.resolveReader(CollectionAnalyzer.READER)
@@ -498,6 +498,9 @@ public class CompiledJsonAnnotationProcessor extends AbstractProcessor {
 		code.append("\t\tcom.dslplatform.json.runtime.").append(mixinType).append("<").append(className).append("> description = new com.dslplatform.json.runtime.").append(mixinType).append("<>(\n");
 		code.append("\t\t\t").append(className).append(".class,\n");
 		code.append("\t\t\t__dsljson,\n");
+		if (si.deserializeDiscriminator.length() > 0) {
+			code.append("\t\t\t\"").append(si.deserializeDiscriminator).append("\",\n");
+		}
 		code.append("\t\t\tnew com.dslplatform.json.runtime.FormatDescription[] {\n");
 		int i = si.implementations.size();
 		for (StructInfo im : si.implementations) {
